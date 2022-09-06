@@ -1,0 +1,26 @@
+#
+# Makefile for $(PROJECT_NAME)
+#
+
+# The default C compiler
+CC = gcc
+
+# The CFLAGS variable sets compile flags for gcc:
+#  -g          compile with debug information
+#  -Wall       give verbose compiler warnings
+#  -O0         do not optimize generated code
+CFLAGS = -g -Wall -O0 -std=c18
+
+main: src/main.c
+	@mkdir -p bin
+	$(CC) $(CFLAGS) -o bin/main src/main.c
+	
+
+.PHONY: run
+run:
+	@make -s
+	@./bin/main
+
+.PHONY: clean
+clean:
+	rm -f bin/main bin/*.o
