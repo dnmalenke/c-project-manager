@@ -1,26 +1,67 @@
 #
-# Makefile for $(PROJECT_NAME)
+# Makefile for PROJECT_NAME
 #
 
-# The default C compiler
+.DEFAULT_GOAL := optimized
+
 CC = gcc
+CFLAGS = -Wall -std=c18
+DEBUGCFLAGS = -g -O0 -DDEBUG
+OPTIMIZECFLAGS = -O2
+LDFLAGS = 
 
-# The CFLAGS variable sets compile flags for gcc:
-#  -g          compile with debug information
-#  -Wall       give verbose compiler warnings
-#  -O0         do not optimize generated code
-CFLAGS = -g -Wall -O0 -std=c18
+GDBFLAGS = -tui
 
-main: src/main.c
-	@mkdir -p bin
-	$(CC) $(CFLAGS) -o bin/main src/main.c
-	
+SRCFOLDER = src
+BINFOLDER = bin
+OBJFOLDER = $(BINFOLDER)/obj
+
+TARGET = $(BINFOLDER)/main
+SRCFILES = $(SRCFOLDER)/main.c 
+OBJFILES = $(OBJFOLDER)/main.o 
+OBJDIRS = $(OBJFOLDER)
+
+MAKECMDGOALS := $(or $(MAKECMDGOALS),$(.DEFAULT_GOAL))
+
+.PHONY: optimized
+optimized: CFLAGS += $(OPTIMIZECFLAGS)
+
+.PHONY: debug
+debug: CFLAGS += $(DEBUGCFLAGS)
+
+optimized debug: | $(BINFOLDER)/.$(MAKECMDGOALS) $(TARGET)
 
 .PHONY: run
 run:
-	@make -s
-	@./bin/main
+	@$(MAKE) -s $(.DEFAULT_GOAL)
+	@./$(TARGET)
+
+.PHONY: gdb
+gdb:
+	@$(MAKE) -s debug
+	@gdb $(GDBFLAGS) ./$(TARGET)
 
 .PHONY: clean
 clean:
-	rm -f bin/main bin/*.o
+	@rm -rf bin
+	@echo Removed $(BINFOLDER) folder
+	
+# Generate object files
+$(OBJFOLDER)/%.o: $(SRCFOLDER)/%.c | $(OBJDIRS)
+	$(CC) $(CFLAGS) -c $< -o $@ 
+
+# Generate final executable
+$(TARGET): $(OBJFILES)
+	$(CC) $(CFLAGS) -o $(TARGET) $(OBJFILES) $(LDFLAGS)
+
+# Generate necessary output folders
+$(BINFOLDER):
+	@mkdir -p $(BINFOLDER)
+	
+$(OBJDIRS):
+	@mkdir -p $@
+
+# Check goal of output
+$(BINFOLDER)/.$(MAKECMDGOALS): | $(BINFOLDER)
+	@if [ ! -f $(BINFOLDER)/.$(MAKECMDGOALS) ]; then rm -rf $(BINFOLDER) && mkdir -p $(BINFOLDER); fi;
+	@touch $(BINFOLDER)/.$(MAKECMDGOALS)

@@ -2,7 +2,8 @@
 import os
 import argparse
 import shutil
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+
 
 templates_folder = f"{os.path.dirname(os.path.realpath(__file__))}/templates"
 
@@ -17,6 +18,7 @@ def newProject(path):
     
     with open(f"{templates_folder}/makefile-template", "r") as templateFile, open(f"{path}/Makefile", "w+") as outFile:
         for line in templateFile:
+            line = line.replace("PROJECT_NAME", os.path.basename(path))
             outFile.write(line)
 
     shutil.copyfile(f"{templates_folder}/gitignore-template",f"{path}/.gitignore")
@@ -25,20 +27,35 @@ def newProject(path):
 def updateProject(path):
     filestr = ""
     code_files = []
-
+    
     # traverse root directory, and list directories as dirs and files as files
     for root, dirs, files in os.walk(f"{path}/src"):
         for file in files:
             if(Path(file).suffix == ".c"):
-                code_files.append(f"{os.path.relpath(root,path)}/{file}")
+                code_files.append(f"{PurePosixPath(root).relative_to(path / 'src')}/{file.rsplit('.', 1)[0]}".lstrip("./"))
 
     with open(f"{path}/Makefile","r") as makefile:
         filestr = makefile.readlines()
 
     with open(f"{path}/Makefile", "w") as makefile:
         for line in filestr:
-            if line.startswith("\t$(CC)"):
-                line = "\t" + line.strip() + " " + " ".join(filter(lambda file: file not in line, code_files))
+            if line.startswith("SRCFILES"):
+                line = line.strip() + " "
+                for file in code_files:
+                    if file not in line:
+                        line = line + " $(SRCFOLDER)/" + file + ".c"
+                line = line + '\n'
+            if line.startswith("OBJFILES"):
+                line = line.strip() + " "
+                for file in code_files:
+                    if file not in line:
+                        line = line + " $(OBJFOLDER)/" +  file + ".o"
+                line = line + '\n'
+            if line.startswith("OBJDIRS"):
+                line = line.strip() + " "
+                for folder in [os.path.dirname(file) for file in code_files]:
+                    if folder not in line:
+                        line = line + " $(OBJFOLDER)/" +  folder
                 line = line + '\n'
             makefile.write(line)
 
@@ -48,8 +65,7 @@ def addSource(path, filename):
     with open(f"{templates_folder}/source-template.c", "r") as templateFile, open(f"{path}/src/{filename}.c", "w+") as outFile:
         for line in templateFile:
             line = line.replace("header-template.h",f"{os.path.basename(filename)}.h")
-            outFile.write(line)
-            
+            outFile.write(line)            
     
     with open(f"{templates_folder}/header-template.h", "r") as templateFile, open(f"{path}/src/{filename}.h", "w+") as outFile:
         for line in templateFile:
