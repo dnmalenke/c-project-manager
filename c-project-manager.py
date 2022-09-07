@@ -4,7 +4,6 @@ import argparse
 import shutil
 from pathlib import Path, PurePosixPath
 
-
 templates_folder = f"{os.path.dirname(os.path.realpath(__file__))}/templates"
 
 def newProject(path):
@@ -23,12 +22,12 @@ def newProject(path):
 
     shutil.copyfile(f"{templates_folder}/gitignore-template",f"{path}/.gitignore")
     
-
 def updateProject(path):
+    print(f"Upating project: {os.path.basename(path)}")
     filestr = ""
     code_files = []
-    
-    # traverse root directory, and list directories as dirs and files as files
+    changes = False
+
     for root, dirs, files in os.walk(f"{path}/src"):
         for file in files:
             if(Path(file).suffix == ".c"):
@@ -42,8 +41,10 @@ def updateProject(path):
             if line.startswith("SRCFILES"):
                 line = line.strip() + " "
                 for file in code_files:
-                    if file not in line:
+                    if "$(SRCFOLDER)/" + file + ".c" not in line:
                         line = line + " $(SRCFOLDER)/" + file + ".c"
+                        print(f"Found new source file: {file}.c")
+                        changes = True
                 line = line + '\n'
             if line.startswith("OBJFILES"):
                 line = line.strip() + " "
@@ -58,6 +59,9 @@ def updateProject(path):
                         line = line + " $(OBJFOLDER)/" +  folder
                 line = line + '\n'
             makefile.write(line)
+    
+    if not changes:
+        print("Project already up to date.")
 
 def addSource(path, filename):
     os.makedirs(os.path.dirname(f"{path}/src/{filename}"), exist_ok=True)
@@ -65,12 +69,14 @@ def addSource(path, filename):
     with open(f"{templates_folder}/source-template.c", "r") as templateFile, open(f"{path}/src/{filename}.c", "w+") as outFile:
         for line in templateFile:
             line = line.replace("header-template.h",f"{os.path.basename(filename)}.h")
-            outFile.write(line)            
+            outFile.write(line)   
+        print(f"Created: {outFile.name}")
     
     with open(f"{templates_folder}/header-template.h", "r") as templateFile, open(f"{path}/src/{filename}.h", "w+") as outFile:
         for line in templateFile:
             line = line.replace("HEADER_TEMPLATE",f"{safeFileName.upper()}")
             outFile.write(line)
+        print(f"Created: {outFile.name}")
     updateProject(path)
 
 def main():
@@ -89,14 +95,14 @@ def main():
             print("Please select a non-existing folder to create a project in")
         else:      
             newProject(workingPath)
-    if (os.path.isdir(workingPath)):
+
+    if (os.path.isdir(workingPath) and os.path.exists(workingPath / "Makefile")):
         if (args.add):
             addSource(workingPath, args.add)
         else:
             updateProject(workingPath)
     else:
-        print("Project folder not found.")
-    
+        print("Project folder not found. use --new to create a project")
 
 
 if __name__ == "__main__":
